@@ -1,0 +1,135 @@
+---
+title: "Final ShinyApp Project"
+author: "Olivia McKnight"
+date: "12/3/2020"
+output: html_document
+---
+```{r, echo=FALSE}
+install.packages("shinydashboard")
+library(shinydashboard)
+install.packages("shinythemes")
+library(shinythemes)
+```
+
+```{r, echo=FALSE}
+#load necessary packages
+library(gapminder)
+library(tidyverse)
+library(tidyr)
+library(funModeling) 
+library(Hmisc)
+library(plyr)
+library(ggplot2)
+```
+
+```{r, echo=FALSE}
+#load data
+maternal_mortality_rate <- read_csv("Downloads/maternal_mortality_ratio_per_100000_live_births.csv")
+infant_mortality_rate <- read_csv("Downloads/infant_mortality_rate_per_1000_births.csv")
+total_health_spending <- read_csv("Downloads/total_health_spending_percent_of_gdp.csv")
+head(gapminder)
+```
+
+
+```{r, echo=FALSE}
+
+#restructure the total healthcare spending data
+
+ths <- total_health_spending %>%
+    gather("year", "total spending", 2:17, na.rm = TRUE) %>%
+    rename(total.health.spending = "total spending") %>%
+    mutate(country = as.factor(country), year = as.integer(year)) %>%
+    mutate(gdpPerc = total.health.spending * 100)
+ths
+
+
+```
+
+```{r, echo=FALSE}
+
+#restructure the maternal mortality data 
+
+mtr <- maternal_mortality_rate %>%
+    gather("year", "maternal mortality", 2:215, na.rm = TRUE) %>%
+    rename(maternal.mortality = "maternal mortality") %>%
+    mutate(country = as.factor(country), year = as.integer(year)) 
+
+mtr
+```
+```{r, echo=FALSE}
+
+#restructure the infant mortality data 
+
+imr <- infant_mortality_rate %>%
+    gather("year", "infant mortality", 2:217, na.rm = TRUE) %>%
+    rename(infant.mortality = "infant mortality") %>%
+    mutate(country = as.factor(country), year = as.integer(year))
+
+imr
+```
+```{r, echo=FALSE}
+#merge mortality data frames
+mom.and.child <- full_join(mtr, imr)
+
+
+#merge mortalitty data to spending data
+mom.child.money <- full_join(mom.and.child, ths)
+
+
+#merge supplementary data to gapminder 
+gap <- full_join(gapminder, mom.child.money)
+
+#change year to an integer so that we can filter to examine just the years we want to look at 
+gap.final <- gap %>%
+    mutate(year = as.integer(year)) %>%
+    filter(year >= 1995 & year <= 2010)
+
+```
+```{r, echo = FALSE}
+top.ten <- gap.final %>%
+  filter(year == 1997) %>%
+  arrange(desc(gdpPercap)) %>%
+  slice(1:10)
+top.ten
+```
+
+```{r, echo = FALSE}
+country_spending <- function(country, year) {
+  top.gdp <- for(i in length(year)) {
+    top.ten <- gap.final %>%
+      filter(year == i) %>%
+      arrange(desc(gdpPercap)) %>%
+      slice(1)
+  }
+  plot <- ggplot(top.gdp, aes(x = gdpPercap, y = total.health.spending)) + geom_bar(position = "stacked")
+  return(plot)
+}
+country
+```
+
+```{r, echo=FALSE}
+  summary(gap.final)
+  df_status(gap.final)
+  freq(gap.final) 
+  profiling_num(gap.final)
+  plot_num(gap.final, bins = 100)
+  describe(gap.final)
+
+```
+
+```{r, echo=FALSE}
+#question for alice: plotly not recognizing country in tooltip 
+#how to populate this plot for whatever year they put in for our shiny 
+library(ggplot2)
+library(plotly)
+unwanted.years <- c(1996, 1997, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010)
+scatter95 <- gap.final %>%
+        select(gdpPercap, gdpPerc, country, continent, year != 1995)
+scatterplot95 <- ggplot(scatter) + geom_point(aes(x = gdpPercap, y = gdpPerc, color = continent))
+scatterplot95
+
+#q <- ggplotly(p = ggplot2::last_plot(), tooltip = c("country", "gdpPercap", "gdpPerc"))
+#q
+
+
+```
